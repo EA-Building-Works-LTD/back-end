@@ -1,6 +1,6 @@
 const express = require("express");
 const router = express.Router();
-const { authenticateToken, authorizeRole } = require("../frontend/middleware/authMiddleware");
+const { authenticateToken, authorizeRole } = require("../middleware/authMiddleware");
 
 // Mock data for builders
 const builders = [
