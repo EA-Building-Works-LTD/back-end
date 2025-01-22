@@ -7,8 +7,7 @@ const path = require("path");
 const { google } = require("googleapis"); // Google APIs package
 
 // Import Middleware for Authentication and Authorization
-const { authenticateToken, authorizeRole } = require("./middleware/authMiddleware");
-
+const { authenticateToken, authorizeRole } = require('./frontend/middleware/authMiddleware');
 
 // Initialize Express
 const app = express();
