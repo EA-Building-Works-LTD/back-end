@@ -16,7 +16,14 @@ const {
 const app = express();
 
 // Middleware
-app.use(cors({ origin: process.env.FRONTEND_URL || "http://localhost:3000" }));
+app.use(
+  cors({
+    origin: ["https://front-h96ecgmw6-ehsaan-alis-projects.vercel.app", "http://localhost:3000"], // Add both your deployed frontend and localhost
+    methods: ["GET", "POST", "PUT", "DELETE"], // Ensure all required methods are allowed
+    credentials: true,
+  })
+);
+
 app.use(express.json()); // Parse JSON request bodies
 
 // MongoDB Connection with Error Handling
