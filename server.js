@@ -18,11 +18,15 @@ const app = express();
 // Middleware
 app.use(
   cors({
-    origin: ["front-end-sage-two.vercel.app", "http://localhost:3000"], // Add both your deployed frontend and localhost
-    methods: ["GET", "POST", "PUT", "DELETE"], // Ensure all required methods are allowed
-    credentials: true,
+    origin: [
+      "https://front-end-sage-two.vercel.app", // Add your frontend URL
+      "http://localhost:3000", // Optional: Add localhost for development
+    ],
+    methods: ["GET", "POST", "PUT", "DELETE"], // Allow necessary HTTP methods
+    allowedHeaders: ["Content-Type", "Authorization"], // Allow necessary headers
   })
 );
+
 
 app.use(express.json()); // Parse JSON request bodies
 
