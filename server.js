@@ -7,7 +7,10 @@ const path = require("path");
 const { google } = require("googleapis"); // Google APIs package
 
 // Import Middleware for Authentication and Authorization
-const { authenticateToken, authorizeRole } = require('./middleware/authMiddleware');
+const {
+  authenticateToken,
+  authorizeRole,
+} = require("./middleware/authMiddleware");
 
 // Initialize Express
 const app = express();
@@ -16,13 +19,7 @@ const app = express();
 app.use(cors({ origin: process.env.FRONTEND_URL || "http://localhost:3000" }));
 app.use(express.json()); // Parse JSON request bodies
 
-mongoose.connect(
-  process.env.MONGODB_URI, // Replace hardcoded string
-  {
-    useNewUrlParser: true,
-    useUnifiedTopology: true,
-  }
-);
+mongoose.connect(process.env.MONGODB_URI);
 
 // Import and use API routes
 const authRoutes = require("./routes/auth"); // Routes for authentication
@@ -87,15 +84,8 @@ app.get("/api/google-leads", async (req, res) => {
   }
 });
 
-// Serve React app from the build folder
-const frontendPath = path.join(__dirname, "frontend", "build");
-app.use(express.static(frontendPath));
-
-// Catch-all route to serve React's index.html
-app.get("*", (req, res) => {
-  res.sendFile(path.join(frontendPath, "index.html"));
-});
-
 // Listen on a port
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+
+const API_BASE_URL = "https://back-end-4lrs.onrender.com/";
