@@ -27,7 +27,6 @@ app.use(
   })
 );
 
-
 app.use(express.json()); // Parse JSON request bodies
 
 // MongoDB Connection with Error Handling
@@ -95,8 +94,15 @@ app.get("/api/google-leads", async (req, res) => {
 
     res.json(leads);
   } catch (error) {
+    console.error("Error fetching Google Sheet data:", error);
     res.status(500).json({ message: "Error fetching Google Sheet data" });
   }
+});
+
+// Ping Endpoint to Prevent Cold Start Delays
+app.get("/ping", (req, res) => {
+  res.status(200).send("Server is active");
+  console.log("Ping request received to keep the server alive.");
 });
 
 // Root Route
@@ -106,4 +112,7 @@ app.get("/", (req, res) => {
 
 // Listen on a port
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
+  console.log("Backend initialized successfully.");
+});
