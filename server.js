@@ -1,64 +1,77 @@
 require("dotenv").config();
 const express = require("express");
+const mongoose = require("mongoose");
 const cors = require("cors");
 const { google } = require("googleapis");
 
+const authRoutes = require("./routes/auth"); // <-- Adjust the path if needed
+const {
+  authenticateToken,
+  authorizeRole,
+} = require("./middleware/authMiddleware");
+
 const app = express();
 
-// Change this if your front-end is deployed elsewhere
 app.use(
   cors({
     origin: [
-      "http://localhost:3000",
-      "https://YOUR-FRONTEND-APP.vercel.app", 
+      "http://localhost:3000", // Local dev
+      "https://front-end-sage-two.vercel.app", // Your production domain
     ],
-    methods: ["GET", "POST", "PUT", "DELETE"],
+    methods: ["GET", "POST", "PUT", "DELETE", "PATCH"],
     allowedHeaders: ["Content-Type", "Authorization"],
   })
 );
-
 app.use(express.json());
 
-// Simple ping
-app.get("/ping", (req, res) => {
-  res.send("pong");
-});
+// ============== OPTIONAL: MONGODB ==============
+mongoose
+  .connect("mongodb+srv://gabuildersltd24:Ehsaan123123@cluster0.ttcdr.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0", {
+    useNewUrlParser: true,
+    useUnifiedTopology: true,
+  })
+  .then(() => console.log("Connected to MongoDB"))
+  .catch((err) => {
+    console.error("Failed to connect to MongoDB:", err.message);
+    console.error("Connection string:", process.env.MONGODB_URI);
+    process.exit(1); // Exit process if connection fails
+  });
 
-// GET => returns ephemeral _id for each row from Google Sheets
+app.use("/api", authRoutes);
+
+// ============== GOOGLE SHEETS ==============
+const SPREADSHEET_ID = process.env.SPREADSHEET_ID;
+
+// GET => returns ephemeral _id for each row
 app.get("/api/google-leads", async (req, res) => {
   try {
     console.log("GET /api/google-leads called");
 
-    const SPREADSHEET_ID = process.env.SPREADSHEET_ID;
-    if (!SPREADSHEET_ID) {
-      return res
-        .status(500)
-        .json({ message: "SPREADSHEET_ID not set in environment." });
-    }
-
     // Auth
     const auth = new google.auth.GoogleAuth({
       credentials: JSON.parse(
-        Buffer.from(process.env.GOOGLE_SERVICE_ACCOUNT_KEY, "base64").toString("utf8")
+        Buffer.from(process.env.GOOGLE_SERVICE_ACCOUNT_KEY, "base64").toString(
+          "utf8"
+        )
       ),
       scopes: ["https://www.googleapis.com/auth/spreadsheets"],
     });
     const sheets = google.sheets({ version: "v4", auth });
 
-    // Change the range if your sheet is named differently
-    const sheetResponse = await sheets.spreadsheets.values.get({
+    // Read rows
+    const response = await sheets.spreadsheets.values.get({
       spreadsheetId: SPREADSHEET_ID,
-      range: "Form Responses 1!A2:L",
+      range: "Form Responses 1!A2:L", // Adjust if your sheet is different
     });
+    const rows = response.data.values || [];
 
-    const rows = sheetResponse.data.values || [];
     if (rows.length === 0) {
-      return res.status(404).json({ message: "No data found in Google Sheet." });
+      return res.status(404).json({ message: "No data found in the sheet" });
     }
 
-    // Create ephemeral ID like "googleSheet-0" for each row
+    // Add ephemeral _id
     const leads = rows.map((row, index) => ({
-      _id: `googleSheet-${index}`,
+      _id: `googleSheet-${index}`, // e.g. "googleSheet-0"
       timestamp: row[0] || "N/A",
       builder: row[1] || "N/A",
       fullName: row[2] || "N/A",
@@ -71,90 +84,79 @@ app.get("/api/google-leads", async (req, res) => {
       startDate: row[9] || "N/A",
       email: row[10] || "N/A",
       contactPreference: row[11] || "N/A",
+      // If you want a "status" field:
       status: "N/A",
     }));
 
-    console.log("Returning leads (sample) =>", leads.slice(0, 3));
-    return res.json(leads);
+    console.log("Returning leads (first 3 sample):", leads.slice(0, 3));
+    res.json(leads);
   } catch (error) {
-    console.error("Error in GET /api/google-leads:", error);
-    return res.status(500).json({ message: "Server error fetching leads." });
+    console.error("Error fetching Google Sheet data:", error);
+    res.status(500).json({ message: "Error fetching Google Sheet data" });
   }
 });
 
-// PUT => update builder in the Google Sheet
+// PUT => updates builder in column B
 app.put("/api/google-leads/:id", async (req, res) => {
   try {
-    console.log("PUT /api/google-leads => ID:", req.params.id, "Body:", req.body);
+    console.log("PUT /api/google-leads =>", req.params.id, req.body);
 
-    const { id } = req.params; // e.g., "googleSheet-5"
+    // Expect something like "googleSheet-2"
+    const { id } = req.params;
     if (!id.startsWith("googleSheet-")) {
       return res.status(400).json({ message: "Invalid ID format." });
     }
     const rowIndex = parseInt(id.replace("googleSheet-", ""), 10);
     if (isNaN(rowIndex)) {
-      return res.status(400).json({ message: "Unable to parse row index." });
+      return res.status(400).json({ message: "Unable to parse row index" });
     }
 
-    // rowIndex=0 => actual sheet row #2 if data starts on row 2
+    // rowIndex=0 => actual row=2 if your range starts at row2
     const sheetRow = rowIndex + 2;
-    const { builder, status } = req.body;
-
-    const SPREADSHEET_ID = process.env.SPREADSHEET_ID;
-    if (!SPREADSHEET_ID) {
-      return res
-        .status(500)
-        .json({ message: "SPREADSHEET_ID not set in environment." });
-    }
+    const { builder } = req.body;
 
     // Auth
     const auth = new google.auth.GoogleAuth({
       credentials: JSON.parse(
-        Buffer.from(process.env.GOOGLE_SERVICE_ACCOUNT_KEY, "base64").toString("utf8")
+        Buffer.from(process.env.GOOGLE_SERVICE_ACCOUNT_KEY, "base64").toString(
+          "utf8"
+        )
       ),
       scopes: ["https://www.googleapis.com/auth/spreadsheets"],
     });
     const sheets = google.sheets({ version: "v4", auth });
 
-    // Update "builder" in column B
-    // e.g. "Form Responses 1!B5" if rowIndex=3 => sheetRow=5
-    const builderRange = `Form Responses 1!B${sheetRow}`;
-    await sheets.spreadsheets.values.update({
+    // If builder is in column B => "Form Responses 1!B<row>"
+    const range = `Form Responses 1!B${sheetRow}`;
+    const updateResp = await sheets.spreadsheets.values.update({
       spreadsheetId: SPREADSHEET_ID,
-      range: builderRange,
+      range,
       valueInputOption: "USER_ENTERED",
       resource: {
         values: [[builder]],
       },
     });
 
-    // If you'd like to store status in the sheet, pick a free column (e.g. column M)
-    // const statusRange = `Form Responses 1!M${sheetRow}`;
-    // await sheets.spreadsheets.values.update({
-    //   spreadsheetId: SPREADSHEET_ID,
-    //   range: statusRange,
-    //   valueInputOption: "USER_ENTERED",
-    //   resource: {
-    //     values: [[status]],
-    //   },
-    // });
-
-    console.log(`Updated row #${sheetRow} => builder=${builder}, status=${status}`);
-    return res.json({
-      message: `Updated row #${sheetRow}`,
+    console.log("Update result =>", updateResp.data);
+    res.json({
+      message: `Builder updated in row #${sheetRow}`,
+      update: builder,
       rowIndex,
-      builder,
-      status,
     });
   } catch (error) {
-    console.error("Error in PUT /api/google-leads:", error);
-    return res
-      .status(500)
-      .json({ message: "Server error updating lead in Google Sheet." });
+    console.error("Error updating builder:", error);
+    res.status(500).json({ message: "Error updating builder" });
   }
 });
 
-// Start Server
+// Ping/Root
+app.get("/ping", (req, res) => res.send("pong"));
+app.get("/", (req, res) => res.send("Server is running."));
+
+
+const buildersRoutes = require("./routes/builders");
+app.use("/api/builders", buildersRoutes);
+
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
