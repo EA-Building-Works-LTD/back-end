@@ -4,7 +4,7 @@ const mongoose = require("mongoose");
 const cors = require("cors");
 const { google } = require("googleapis");
 
-const authRoutes = require("./routes/auth"); // <-- Adjust the path if needed
+const authRoutes = require("./routes/auth"); // <-- Adjust if your 'auth' route is elsewhere
 const {
   authenticateToken,
   authorizeRole,
@@ -15,7 +15,7 @@ const app = express();
 app.use(
   cors({
     origin: [
-      "http://localhost:3000", // Local dev
+      "http://localhost:3000",                 // Local dev
       "https://front-end-sage-two.vercel.app", // Your production domain
     ],
     methods: ["GET", "POST", "PUT", "DELETE", "PATCH"],
@@ -26,20 +26,24 @@ app.use(express.json());
 
 // ============== OPTIONAL: MONGODB ==============
 mongoose
-  .connect("mongodb+srv://gabuildersltd24:Ehsaan123123@cluster0.ttcdr.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0", {
-    useNewUrlParser: true,
-    useUnifiedTopology: true,
-  })
+  .connect(
+    "mongodb+srv://gabuildersltd24:Ehsaan123123@cluster0.ttcdr.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0",
+    {
+      useNewUrlParser: true,
+      useUnifiedTopology: true,
+    }
+  )
   .then(() => console.log("Connected to MongoDB"))
   .catch((err) => {
     console.error("Failed to connect to MongoDB:", err.message);
     console.error("Connection string:", process.env.MONGODB_URI);
-    process.exit(1); // Exit process if connection fails
+    process.exit(1); // Exit if connection fails
   });
 
+// Mount auth routes
 app.use("/api", authRoutes);
 
-// ============== GOOGLE SHEETS ==============
+// ============== GOOGLE SHEETS EXAMPLE ROUTES ==============
 const SPREADSHEET_ID = process.env.SPREADSHEET_ID;
 
 // GET => returns ephemeral _id for each row
@@ -71,7 +75,7 @@ app.get("/api/google-leads", async (req, res) => {
 
     // Add ephemeral _id
     const leads = rows.map((row, index) => ({
-      _id: `googleSheet-${index}`, // e.g. "googleSheet-0"
+      _id: `googleSheet-${index}`,
       timestamp: row[0] || "N/A",
       builder: row[1] || "N/A",
       fullName: row[2] || "N/A",
@@ -84,7 +88,6 @@ app.get("/api/google-leads", async (req, res) => {
       startDate: row[9] || "N/A",
       email: row[10] || "N/A",
       contactPreference: row[11] || "N/A",
-      // If you want a "status" field:
       status: "N/A",
     }));
 
@@ -101,7 +104,6 @@ app.put("/api/google-leads/:id", async (req, res) => {
   try {
     console.log("PUT /api/google-leads =>", req.params.id, req.body);
 
-    // Expect something like "googleSheet-2"
     const { id } = req.params;
     if (!id.startsWith("googleSheet-")) {
       return res.status(400).json({ message: "Invalid ID format." });
@@ -111,7 +113,7 @@ app.put("/api/google-leads/:id", async (req, res) => {
       return res.status(400).json({ message: "Unable to parse row index" });
     }
 
-    // rowIndex=0 => actual row=2 if your range starts at row2
+    // rowIndex=0 => actual row=2 if your range starts at row 2
     const sheetRow = rowIndex + 2;
     const { builder } = req.body;
 
@@ -149,14 +151,15 @@ app.put("/api/google-leads/:id", async (req, res) => {
   }
 });
 
-// Ping/Root
+// Simple pings
 app.get("/ping", (req, res) => res.send("pong"));
 app.get("/", (req, res) => res.send("Server is running."));
 
-
+// Mount the builders routes at /api/builders
 const buildersRoutes = require("./routes/builders");
 app.use("/api/builders", buildersRoutes);
 
+// Start server
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
