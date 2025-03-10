@@ -159,6 +159,18 @@ app.get("/", (req, res) => res.send("Server is running."));
 const buildersRoutes = require("./routes/builders");
 app.use("/api/builders", buildersRoutes);
 
+// Mount the analytics routes at /api/analytics
+const analyticsRoutes = require("./routes/analytics");
+app.use("/api/analytics", analyticsRoutes);
+
+// Mount the AI routes at /api/ai
+const aiRoutes = require("./routes/ai");
+app.use("/api/ai", aiRoutes);
+
+// Mount the predictive analytics routes at /api/predictive
+const predictiveRoutes = require("./routes/predictiveAnalytics");
+app.use("/api/predictive", predictiveRoutes);
+
 // Start server
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
