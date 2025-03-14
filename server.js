@@ -12,16 +12,7 @@ const {
 
 const app = express();
 
-app.use(
-  cors({
-    origin: [
-      "http://localhost:3000",                 // Local dev
-      "https://front-end-sage-two.vercel.app", // Your production domain
-    ],
-    methods: ["GET", "POST", "PUT", "DELETE", "PATCH"],
-    allowedHeaders: ["Content-Type", "Authorization"],
-  })
-);
+app.use(cors());
 app.use(express.json());
 
 // ============== OPTIONAL: MONGODB ==============
@@ -73,11 +64,17 @@ app.get("/api/google-leads", async (req, res) => {
       return res.status(404).json({ message: "No data found in the sheet" });
     }
 
+    // Log all builder names for debugging
+    const builderNames = rows.map(row => row[1] || "N/A").filter(name => name !== "N/A");
+    const uniqueBuilderNames = [...new Set(builderNames)];
+    console.log("Builder names in Google Sheets:", uniqueBuilderNames);
+
     // Add ephemeral _id
     const leads = rows.map((row, index) => ({
       _id: `googleSheet-${index}`,
       timestamp: row[0] || "N/A",
       builder: row[1] || "N/A",
+      builderLowerCase: (row[1] || "N/A").toLowerCase().trim(), // Add lowercase version for easier matching
       fullName: row[2] || "N/A",
       phoneNumber: row[3] || "N/A",
       address: row[4] || "N/A",
@@ -159,6 +156,12 @@ app.get("/", (req, res) => res.send("Server is running."));
 const buildersRoutes = require("./routes/builders");
 app.use("/api/builders", buildersRoutes);
 
+// Mount the form submissions routes at /api/form-submissions
+const formSubmissionRoutes = require("./server/routes/formSubmissions");
+app.use("/api/form-submissions", formSubmissionRoutes);
+
+// Comment out routes that don't exist yet
+/*
 // Mount the analytics routes at /api/analytics
 const analyticsRoutes = require("./routes/analytics");
 app.use("/api/analytics", analyticsRoutes);
@@ -170,6 +173,7 @@ app.use("/api/ai", aiRoutes);
 // Mount the predictive analytics routes at /api/predictive
 const predictiveRoutes = require("./routes/predictiveAnalytics");
 app.use("/api/predictive", predictiveRoutes);
+*/
 
 // Start server
 const PORT = process.env.PORT || 5000;
