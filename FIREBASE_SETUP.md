@@ -218,4 +218,4 @@ npm start
 - Set up Firebase Storage for file uploads
 - Implement Firebase Cloud Functions for server-side logic
 - Configure Firebase Hosting for deployment
-- Set up Firebase Analytics to track user behavior 
+- Set up Firebase Analytics to track user behavior
